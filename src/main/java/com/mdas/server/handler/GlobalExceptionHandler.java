@@ -153,7 +153,7 @@ public class GlobalExceptionHandler {
     /**
      * 处理速率限制异常
      */
-    @ExceptionHandler(RuntimeException.class)
+    @ExceptionHandler(RateLimitException.class)
     @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
     public Object handleRateLimitException(RateLimitException e, HttpServletRequest request) {
         // 检查是否是速率限制相关的异常

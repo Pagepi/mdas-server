@@ -32,24 +32,27 @@ public class RateLimitAspect {
         int time = rateLimit.time();
         TimeUnit timeUnit = rateLimit.timeUnit();
 
-        // 获取当前计数
-        String countStr = (String) redisTemplate.opsForValue().get(key);
-        int count = countStr != null ? Integer.parseInt(countStr) : 0;
-
-        if (count >= limit) {
-            log.warn("速率限制触发: key={}, 计数={}, 限制={}", key, count, limit);
-            throw new RateLimitException(rateLimit.message());
-        }
-
-        // 增加计数
-        redisTemplate.opsForValue().increment(key);
-        // 设置过期时间
-        redisTemplate.expire(key, time, timeUnit);
-
         try {
+            // 使用 increment 并正确处理返回类型
+            Long count = redisTemplate.opsForValue().increment(key);
+
+            // 如果是第一次设置，设置过期时间
+            if (count != null && count == 1) {
+                redisTemplate.expire(key, time, timeUnit);
+            }
+
+            if (count != null && count > limit) {
+                log.warn("速率限制触发: key={}, 计数={}, 限制={}", key, count, limit);
+                throw new RuntimeException(rateLimit.message());
+            }
+
             return joinPoint.proceed();
+
         } catch (Exception e) {
-            throw e;
+            if (e instanceof RuntimeException) {
+                throw e;
+            }
+            throw new RuntimeException("速率限制检查失败", e);
         }
     }
 
