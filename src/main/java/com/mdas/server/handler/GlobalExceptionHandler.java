@@ -1,11 +1,13 @@
 package com.mdas.server.handler;
 
+import com.mdas.server.exception.RateLimitException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
@@ -146,5 +148,48 @@ public class GlobalExceptionHandler {
     private boolean isDevelopment() {
         // 这里可以根据环境配置判断是否为开发环境
         return true; // 暂时返回true便于调试
+    }
+
+    /**
+     * 处理速率限制异常
+     */
+    @ExceptionHandler(RuntimeException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public Object handleRateLimitException(RateLimitException e, HttpServletRequest request) {
+        // 检查是否是速率限制相关的异常
+        if (e.getMessage().contains("请求过于频繁") || e.getMessage().contains("登录尝试次数过多")) {
+            log.warn("速率限制触发: {} - {}", request.getRequestURI(), e.getMessage());
+            return new GlobalExceptionHandler.RateLimitResponse(false, 429, e.getMessage(), request.getRequestURI());
+        }
+
+        // 其他RuntimeException继续抛出或按需处理
+        throw e;
+    }
+
+    /**
+     * 速率限制响应对象
+     */
+    public static class RateLimitResponse {
+        private boolean success;
+        private int code;
+        private String message;
+        private String path;
+
+        public RateLimitResponse(boolean success, int code, String message, String path) {
+            this.success = success;
+            this.code = code;
+            this.message = message;
+            this.path = path;
+        }
+
+        // getter 和 setter
+        public boolean isSuccess() { return success; }
+        public void setSuccess(boolean success) { this.success = success; }
+        public int getCode() { return code; }
+        public void setCode(int code) { this.code = code; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public String getPath() { return path; }
+        public void setPath(String path) { this.path = path; }
     }
 }

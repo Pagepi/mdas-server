@@ -1,5 +1,6 @@
 package com.mdas.server.controller;
 
+import com.mdas.server.annotation.RateLimit;
 import com.mdas.server.dto.LoginRequest;
 import com.mdas.server.dto.LoginResponse;
 import com.mdas.server.service.AuthService;
@@ -22,6 +23,8 @@ public class AuthController {
      * POST http://localhost:8080/api/auth/login
      */
     @PostMapping("/login")
+    @RateLimit(limit = 5, time = 1, timeUnit = java.util.concurrent.TimeUnit.MINUTES,
+            message = "登录尝试次数过多，请1分钟后再试")
     public LoginResponse login(@RequestBody @Valid LoginRequest loginRequest, HttpServletRequest request) {
         return authService.login(loginRequest.getAccount(), loginRequest.getPassword(), request);
     }

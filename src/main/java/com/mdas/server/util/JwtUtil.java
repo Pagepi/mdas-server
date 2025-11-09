@@ -3,11 +3,14 @@ package com.mdas.server.util;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +27,9 @@ public class JwtUtil {
 
     @Value("${jwt.issuer:mdas-server}")
     private String issuer;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 生成签名密钥（从配置读取）
@@ -85,10 +91,48 @@ public class JwtUtil {
     }
 
     /**
+     * 将token加入黑名单
+     */
+    public void blacklistToken(String token) {
+        try {
+            Claims claims = getAllClaimsFromToken(token);
+            Date expiration = claims.getExpiration();
+            long ttl = expiration.getTime() - System.currentTimeMillis();
+
+            if (ttl > 0) {
+                String key = "jwt:blacklist:" + token;
+                redisTemplate.opsForValue().set(key, "blacklisted", Duration.ofMillis(ttl));
+                log.info("Token已加入黑名单: {}", maskToken(token));
+            }
+        } catch (Exception e) {
+            log.warn("将Token加入黑名单失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 检查token是否在黑名单中
+     */
+    public boolean isTokenBlacklisted(String token) {
+        try {
+            String key = "jwt:blacklist:" + token;
+            return Boolean.TRUE.equals(redisTemplate.hasKey(key));
+        } catch (Exception e) {
+            log.warn("检查Token黑名单失败: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * 验证token是否有效
      */
     public boolean validateToken(String token) {
         try {
+            // 先检查是否在黑名单中
+            if (isTokenBlacklisted(token)) {
+                log.warn("Token已被加入黑名单: {}", maskToken(token));
+                return false;
+            }
+
             getAllClaimsFromToken(token);
             return true;
         } catch (ExpiredJwtException e) {
