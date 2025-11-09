@@ -1,104 +1,57 @@
 package com.mdas.server.util;
 
 import org.springframework.stereotype.Component;
-
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 
-/**
- * 密码加密工具类
- */
 @Component
 public class PasswordEncoder {
 
     private static final int SALT_LENGTH = 16;
-    private static final String ALGORITHM = "SHA-256";
+    private static final String DELIMITER = ":";
 
-    /**
-     * 生成加密密码
-     */
-    public String encode(String rawPassword) {
+    public String encode(CharSequence rawPassword) {
         try {
             // 生成随机盐值
-            byte[] salt = generateSalt();
-
-            // 计算加盐哈希
-            byte[] hashedPassword = hashWithSalt(rawPassword, salt);
-
-            // 组合盐值和哈希值: salt + hash
-            byte[] combined = new byte[salt.length + hashedPassword.length];
-            System.arraycopy(salt, 0, combined, 0, salt.length);
-            System.arraycopy(hashedPassword, 0, combined, salt.length, hashedPassword.length);
-
-            return Base64.getEncoder().encodeToString(combined);
-
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("密码加密失败", e);
-        }
-    }
-
-    /**
-     * 生成随机盐值
-     */
-    private byte[] generateSalt() {
-        SecureRandom random = new SecureRandom();
-        byte[] salt = new byte[SALT_LENGTH];
-        random.nextBytes(salt);
-        return salt;
-    }
-
-    /**
-     * 计算加盐哈希
-     */
-    private byte[] hashWithSalt(String password, byte[] salt) throws NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance(ALGORITHM);
-        digest.update(salt);
-        return digest.digest(password.getBytes());
-    }
-
-    /**
-     * 验证密码
-     */
-    public boolean matches(String rawPassword, String encodedPassword) {
-        try {
-            // 如果存储的密码不是加密格式，直接比较
-            if (!isEncoded(encodedPassword)) {
-                return rawPassword.equals(encodedPassword);
-            }
-
-            // 解码Base64
-            byte[] combined = Base64.getDecoder().decode(encodedPassword);
-
-            // 提取盐值和哈希值
+            SecureRandom random = new SecureRandom();
             byte[] salt = new byte[SALT_LENGTH];
-            byte[] storedHash = new byte[combined.length - SALT_LENGTH];
-            System.arraycopy(combined, 0, salt, 0, SALT_LENGTH);
-            System.arraycopy(combined, SALT_LENGTH, storedHash, 0, storedHash.length);
+            random.nextBytes(salt);
 
-            // 计算输入密码的哈希值
-            byte[] inputHash = hashWithSalt(rawPassword, salt);
+            // 使用SHA-256进行哈希
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(salt);
+            byte[] hash = digest.digest(rawPassword.toString().getBytes());
 
-            // 比较哈希值
-            return MessageDigest.isEqual(storedHash, inputHash);
+            // 返回格式: base64(盐值):base64(哈希值)
+            return Base64.getEncoder().encodeToString(salt) + DELIMITER +
+                    Base64.getEncoder().encodeToString(hash);
 
         } catch (Exception e) {
-            return false;
+            throw new RuntimeException("Password encryption failed", e);
         }
     }
 
-    /**
-     * 检查密码是否是加密格式
-     */
-    public boolean isEncoded(String password) {
-        if (password == null || password.length() < 50) {
-            return false;
-        }
+    public boolean matches(CharSequence rawPassword, String encodedPassword) {
         try {
-            Base64.getDecoder().decode(password);
-            return true;
-        } catch (IllegalArgumentException e) {
+            // 分割盐值和哈希值
+            String[] parts = encodedPassword.split(DELIMITER);
+            if (parts.length != 2) {
+                return false; // 格式不正确
+            }
+
+            byte[] salt = Base64.getDecoder().decode(parts[0]);
+            byte[] expectedHash = Base64.getDecoder().decode(parts[1]);
+
+            // 使用相同的盐值计算输入密码的哈希
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(salt);
+            byte[] actualHash = digest.digest(rawPassword.toString().getBytes());
+
+            // 安全地比较哈希值
+            return MessageDigest.isEqual(expectedHash, actualHash);
+
+        } catch (Exception e) {
             return false;
         }
     }

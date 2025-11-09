@@ -4,6 +4,7 @@ import com.mdas.server.dto.ApiResponse;
 import com.mdas.server.entity.SystemUserAccounts;
 import com.mdas.server.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -49,7 +50,7 @@ public class UserController {
 
     // 创建用户
     @PostMapping
-    public ResponseEntity<ApiResponse<SystemUserAccounts>> createUser(@RequestBody SystemUserAccounts user, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<SystemUserAccounts>> createUser(@RequestBody @Valid SystemUserAccounts user, HttpServletRequest request) {
         SystemUserAccounts currentUser = getCurrentUser(request);
         if (currentUser == null) {
             return ResponseEntity.status(401).body(ApiResponse.error("未认证", 401));

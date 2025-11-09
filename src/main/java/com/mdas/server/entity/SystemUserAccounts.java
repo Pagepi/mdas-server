@@ -3,6 +3,10 @@ package com.mdas.server.entity;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
@@ -18,6 +22,8 @@ public class SystemUserAccounts implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @NotBlank(message = "账号不能为空")
+    @Size(min = 3, max = 20, message = "账号长度3-20位")
     @Column(name = "account", unique = true, nullable = false, length = 50)
     private String account;
 
@@ -26,7 +32,10 @@ public class SystemUserAccounts implements Serializable {
 
     @Column(name = "password", nullable = false, length = 255)
     private String password;
+    @Transient
+    private String confirmPassword;
 
+    @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确")
     @Column(name = "mobile", length = 20)
     private String mobile;
 
@@ -34,6 +43,7 @@ public class SystemUserAccounts implements Serializable {
     private String wechat;
 
     @Column(name = "email", length = 100)
+    @Email(message = "邮箱格式不正确")
     private String email;
 
     @Column(name = "status", nullable = false, length = 20)

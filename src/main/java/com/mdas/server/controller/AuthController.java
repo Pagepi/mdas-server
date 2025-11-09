@@ -4,6 +4,7 @@ import com.mdas.server.dto.LoginRequest;
 import com.mdas.server.dto.LoginResponse;
 import com.mdas.server.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +22,7 @@ public class AuthController {
      * POST http://localhost:8080/api/auth/login
      */
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
+    public LoginResponse login(@RequestBody @Valid LoginRequest loginRequest, HttpServletRequest request) {
         return authService.login(loginRequest.getAccount(), loginRequest.getPassword(), request);
     }
 
