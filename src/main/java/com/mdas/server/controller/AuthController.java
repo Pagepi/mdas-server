@@ -4,6 +4,7 @@ import com.mdas.server.annotation.RateLimit;
 import com.mdas.server.dto.LoginRequest;
 import com.mdas.server.dto.LoginResponse;
 import com.mdas.server.service.AuthService;
+import com.mdas.server.service.OperationLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,9 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private OperationLogService operationLogService;
+
     /**
      * 用户登录接口
      * POST http://localhost:8080/api/auth/login
@@ -26,7 +30,16 @@ public class AuthController {
     @RateLimit(limit = 5, time = 1, timeUnit = java.util.concurrent.TimeUnit.MINUTES,
             message = "登录尝试次数过多，请1分钟后再试")
     public LoginResponse login(@RequestBody @Valid LoginRequest loginRequest, HttpServletRequest request) {
-        return authService.login(loginRequest.getAccount(), loginRequest.getPassword(), request);
+        String clientIp = operationLogService.getClientIp(request);
+        String userAgent = operationLogService.getUserAgent(request);
+
+        LoginResponse response = authService.login(loginRequest.getAccount(), loginRequest.getPassword(), request);
+
+        // 记录登录审计日志
+        operationLogService.logLoginAttempt(loginRequest.getAccount(), clientIp, userAgent,
+                response.isSuccess(), response.isSuccess() ? null : response.getMessage());
+
+        return response;
     }
 
     /**
@@ -44,9 +57,8 @@ public class AuthController {
                 String clientIp = getClientIp(request);
                 String userAgent = request.getHeader("User-Agent");
 
-                // 记录登出日志（这里需要注入LoginLogService）
-                // loginLogService.logLogout(user, clientIp, userAgent, 0L);
-
+                // 记录登出审计日志
+                operationLogService.logLogout(user, clientIp, userAgent);
                 log.info("用户 {} 登出", user.getAccount());
             }
 
